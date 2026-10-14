@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="330" height="227" viewBox="0 -12 330 227">
+  <defs>
+    <path id="body" d="M 76 100 C 76 84, 100 80, 124 86 C 150 91, 178 88, 198 92 C 222 96, 234 120, 228 142 C 224 160, 206 166, 188 162 C 166 156, 148 148, 128 146 C 108 150, 88 152, 76 140 C 66 130, 68 110, 76 100 Z"/>
+    <path id="neck" d="M 192 94 C 202 72, 220 58, 238 60 L 258 102 C 248 122, 232 134, 212 140 C 202 132, 194 114, 192 94 Z"/>
+    <path id="legFN" d="M 196 120 C 194 150, 197 174, 199 190 C 198 201, 223 203, 222 194 C 219 180, 215 152, 217 122 Z"/>
+    <path id="legFF" d="M 178 120 C 176 150, 179 174, 181 190 C 180 201, 205 203, 204 194 C 201 180, 197 152, 199 122 Z"/>
+    <path id="legHN" d="M 86 108 C 70 128, 72 154, 82 172 C 85 184, 84 194, 88 198 C 94 204, 112 202, 109 194 C 103 188, 100 176, 103 164 C 110 148, 118 130, 118 114 Z"/>
+    <path id="legHF" d="M 106 110 C 94 130, 96 154, 104 172 C 107 184, 106 194, 110 198 C 116 204, 134 202, 131 194 C 125 188, 122 176, 125 164 C 132 148, 138 130, 136 114 Z"/>
+    <path id="tail" d="M 80 98 C 60 100, 44 116, 36 140 C 33 150, 39 153, 43 147 C 51 126, 64 112, 84 107 Z"/>
+    <path id="head" d="M 226 62 C 224 40, 244 26, 263 29 C 277 31, 286 41, 291 52 C 301 58, 313 66, 318 76 C 322 86, 315 96, 301 98 C 285 101, 268 106, 252 108 C 237 108, 226 94, 226 62 Z"/>
+    <path id="ear" d="M 236 46 C 224 45, 217 58, 217 80 C 217 100, 220 114, 228 118 C 236 120, 241 110, 241 96 C 241 82, 242 63, 236 46 Z"/>
+  </defs>
+
+  <!-- zampe lontane (in ombra) -->
+  <g stroke="#161616" stroke-width="3.5" stroke-linejoin="round" fill="#e3e1e8">
+    <use href="#legHF"/><use href="#legFF"/>
+  </g>
+  <g fill="none" stroke="#161616" stroke-width="2" stroke-linecap="round">
+    <path d="M 116 199 L 117 194 M 123 199 L 124 194"/>
+    <path d="M 189 199 L 190 194 M 196 199 L 197 194"/>
+  </g>
+  <g fill="#161616"><circle cx="114" cy="184" r="2"/><circle cx="189" cy="178" r="1.9"/></g>
+
+  <!-- corpo + collo + coda, alzati rispetto alle zampe -->
+  <g transform="translate(0,-14)">
+    <use href="#tail" fill="#fbfbf8" stroke="#161616" stroke-width="3.5" stroke-linejoin="round"/>
+  </g>
+
+  <!-- contorni uniti (corpo, collo, zampe vicine), poi riempimenti -->
+  <g stroke="#161616" stroke-width="7" stroke-linejoin="round" fill="#161616">
+    <use href="#body" transform="translate(0,-14)"/><use href="#neck" transform="translate(0,-14)"/>
+    <use href="#legFN"/><use href="#legHN"/>
+  </g>
+  <g fill="#fbfbf8">
+    <use href="#body" transform="translate(0,-14)"/><use href="#neck" transform="translate(0,-14)"/>
+    <use href="#legFN"/><use href="#legHN"/>
+  </g>
+
+  <!-- dettagli zampe vicine -->
+  <g fill="none" stroke="#161616" stroke-width="2.5" stroke-linecap="round">
+    <path d="M 93 199 L 94 194 M 100 199 L 101 194"/>
+    <path d="M 206 199 L 207 194 M 213 199 L 214 194"/>
+  </g>
+  <g fill="#161616">
+    <circle cx="205" cy="168" r="2"/><circle cx="211" cy="182" r="1.6"/><circle cx="207" cy="154" r="1.5"/>
+    <circle cx="90" cy="166" r="1.9"/><circle cx="98" cy="184" r="1.6"/><circle cx="94" cy="148" r="1.5"/>
+  </g>
+
+  <g transform="translate(0,-14)">
+    <path d="M 90 128 C 98 136, 106 140, 116 142" fill="none" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- macchia nera sulla groppa -->
+    <path d="M 82 94 C 88 80, 112 80, 120 88 C 118 99, 100 103, 86 101 Z" fill="#161616"/>
+    <g fill="#161616">
+      <circle cx="144" cy="104" r="2.2"/><circle cx="160" cy="118" r="1.8"/><circle cx="132" cy="126" r="2"/>
+      <circle cx="176" cy="104" r="1.7"/><circle cx="108" cy="112" r="1.9"/><circle cx="152" cy="138" r="1.6"/>
+      <circle cx="188" cy="128" r="1.8"/><circle cx="124" cy="100" r="1.5"/>
+      <circle cx="212" cy="118" r="1.6"/><circle cx="220" cy="132" r="1.5"/>
+    </g>
+
+    <!-- collare rosa con fragoline -->
+    <path d="M 232 102 C 240 110, 252 112, 262 108" fill="none" stroke="#161616" stroke-width="11" stroke-linecap="round"/>
+    <path d="M 232 102 C 240 110, 252 112, 262 108" fill="none" stroke="#f7a8c2" stroke-width="7" stroke-linecap="round"/>
+    <g fill="#e2384d"><circle cx="240" cy="107" r="1.8"/><circle cx="252" cy="109.5" r="1.8"/></g>
+
+    <!-- testa -->
+    <use href="#head" fill="#fbfbf8" stroke="#161616" stroke-width="3.5" stroke-linejoin="round"/>
+    <!-- grande macchia: cima della testa, dietro e attorno all'occhio, giù per la guancia fino alla mascella -->
+    <path d="M 230 42 C 240 30, 258 27, 268 36 C 272 42, 268 47, 262 48 C 256 49, 253 54, 253 60 C 253 70, 259 80, 261 90 C 263 100, 257 106, 249 107 C 238 107, 229 98, 227 86 C 224 70, 224 52, 230 42 Z" fill="#161616"/>
+    <!-- sopracciglio a mezzaluna sull'occhio lontano -->
+    <path d="M 280 41 C 284 32, 296 31, 301 38 C 295 36, 286 37, 280 41 Z" fill="#161616" stroke="#161616" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- occhi a mandorla, un po' cadenti -->
+    <path d="M 259 57 C 262 50, 272 50, 275 56 C 274 63, 263 65, 259 57 Z" fill="#5a3218" stroke="#161616" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="267.5" cy="57" r="3.6" fill="#120a05"/>
+    <circle cx="269" cy="54.5" r="1.6" fill="#ffffff"/>
+    <path d="M 284 52 C 286 46, 295 46, 297 51 C 296 57, 287 58, 284 52 Z" fill="#5a3218" stroke="#161616" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="290.5" cy="52" r="3" fill="#120a05"/>
+    <circle cx="291.8" cy="50.3" r="1.3" fill="#ffffff"/>
+    <!-- naso, bocca, puntini del muso -->
+    <path d="M 307 68 C 318 66, 324 75, 321 84 C 318 90, 308 90, 305 84 C 302 78, 302 72, 307 68 Z" fill="#161616"/>
+    <ellipse cx="311" cy="71" rx="3" ry="1.5" fill="#4a4a4a"/>
+    <path d="M 305 95 C 295 100, 282 101, 270 99 C 266 99, 263 101, 262 104" fill="none" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+    <g fill="#161616"><circle cx="294" cy="87" r="1.2"/><circle cx="288" cy="83" r="1.1"/><circle cx="299" cy="81" r="1"/><circle cx="284" cy="88" r="1"/></g>
+
+    <!-- orecchio lungo nero con screziature bianche -->
+    <use href="#ear" fill="#161616" stroke="#161616" stroke-width="5" stroke-linejoin="round"/>
+    <use href="#ear" fill="none" stroke="#fbfbf8" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M 240 62 C 242 78, 241 96, 237 110" fill="none" stroke="#fbfbf8" stroke-width="1.6" stroke-linecap="round"/>
+    <g fill="#fbfbf8"><circle cx="231" cy="64" r="1.6"/><circle cx="225" cy="76" r="1.4"/><circle cx="234" cy="86" r="1.7"/><circle cx="223" cy="95" r="1.3"/><circle cx="231" cy="102" r="1.6"/><circle cx="226" cy="109" r="1.2"/><circle cx="235" cy="74" r="1.1"/></g>
+  </g>
+</svg>
