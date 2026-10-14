@@ -196,11 +196,23 @@ function spawnObstacle() {
   // le sbarre (solo abbassandosi) compaiono dopo i primi secondi e diventano sempre più frequenti
   const ramp = Math.min(gameTime / RAMP_TIME, 1);
   const barChance = ramp < 0.12 ? 0 : Math.min(0.45, ramp * 0.55);
-  const kind = Math.random() < barChance ? 'bar' : 'ground';
   const x0 = W + 20;
+  // gatti (dopo ~10 s) e piccioni (dopo ~17 s): si muovono verso il cane, quindi partono più lontano
+  // in modo da arrivare al cane nello stesso istante di un ostacolo fermo (la distanza dagli altri resta saltabile)
+  const r = Math.random();
+  const animal = ramp > 0.15 && r < 0.17 ? 'cat' : ramp > 0.25 && r < 0.3 ? 'bird' : null;
+  if (animal) {
+    const vx = animal === 'cat' ? 0.1 + Math.random() * 0.06 : 0.07 + Math.random() * 0.05;
+    const arrive = (x0 - dog.x) / speed;
+    const xStart = dog.x + arrive * (speed + vx);
+    if (animal === 'cat') obstacles.push({ kind: 'cat', x: xStart, y: GROUND_Y - 30, w: 40, h: 30, vx, v: Math.random() });
+    else obstacles.push({ kind: 'bird', x: xStart, y: GROUND_Y - (CROUCH_H + 20) - 22, w: 34, h: 22, vx, v: Math.random() });
+    return;
+  }
+  const kind = Math.random() < barChance ? 'bar' : 'ground';
   if (kind === 'ground') {
     const h = 34 + Math.random() * 28;
-    obstacles.push({ kind, x: x0, y: GROUND_Y - h, w: 28, h });
+    obstacles.push({ kind, x: x0, y: GROUND_Y - h, w: 28, h, v: Math.random() });
     if (Math.random() < 0.6) {
       // arco alto sopra l'ostacolo: si prende solo saltando, sempre sopra l'ostacolo
       const cx = x0 + 14;
@@ -213,9 +225,9 @@ function spawnObstacle() {
     // metà a caso: sbarra dal cielo (solo abbassandosi) o sbarra sospesa bassa (si salta o ci si passa sotto)
     const gap = CROUCH_H + 20;
     if (Math.random() < 0.5) {
-      obstacles.push({ kind, x: x0, y: -50, w: 44, h: GROUND_Y - gap + 50 });
+      obstacles.push({ kind, x: x0, y: -50, w: 44, h: GROUND_Y - gap + 50, v: Math.random() });
     } else {
-      obstacles.push({ kind, x: x0, y: GROUND_Y - gap - 50, w: 44, h: 50 });
+      obstacles.push({ kind, x: x0, y: GROUND_Y - gap - 50, w: 44, h: 50, v: Math.random() });
     }
     if (Math.random() < 0.6) {
       // premietti a terra sotto la sbarra: si prendono solo abbassandosi
@@ -349,10 +361,14 @@ function drawDog() {
 
 function drawObstacles() {
   for (const o of obstacles) {
-    const v = (o.h * 7.31) % 1; // variante stabile per ogni ostacolo
+    const v = o.v ?? 0; // variante scelta a caso quando l'ostacolo compare
     ctx.save();
     ctx.lineJoin = 'round'; ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 2;
-    if (o.kind === 'ground') {
+    if (o.kind === 'cat') {
+      drawCat(o);
+    } else if (o.kind === 'bird') {
+      drawPigeon(o);
+    } else if (o.kind === 'ground') {
       if (v < 0.62) drawGeraniumPot(o); else drawBollard(o);
     } else if (o.y < 0) {
       drawQuintanaBanner(o, v);
@@ -361,6 +377,77 @@ function drawObstacles() {
     }
     ctx.restore();
   }
+}
+
+// gatto randagio che corre verso il cane (guarda a sinistra)
+const CAT_COATS = [
+  { body: '#e39445', dark: '#b8662a', belly: '#f6dcb8' },   // rosso tigrato
+  { body: '#2b2a2e', dark: '#141317', belly: '#4a474f' },   // nero
+  { body: '#9a9894', dark: '#6b6965', belly: '#e9e6df' }    // grigio tigrato
+];
+function drawCat(o) {
+  const coat = CAT_COATS[Math.floor(o.v * CAT_COATS.length)];
+  const t = gameTime * 0.03 + o.v * 10;
+  const bob = Math.abs(Math.sin(t)) * 2;
+  const x = o.x, base = o.y + o.h, bodyY = base - 17 - bob;
+  ctx.lineWidth = 2; ctx.strokeStyle = '#3a2c25';
+  // coda alzata e mossa
+  ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  const tailPath = () => { ctx.beginPath(); ctx.moveTo(x + 34, bodyY - 2); ctx.quadraticCurveTo(x + 48, bodyY - 6, x + 46 + Math.sin(t) * 3, bodyY - 20); };
+  tailPath(); ctx.stroke();
+  ctx.strokeStyle = coat.body; ctx.lineWidth = 3.5; tailPath(); ctx.stroke();
+  // zampe in corsa
+  const legs = [[8, Math.sin(t)], [14, Math.sin(t + Math.PI)], [28, Math.sin(t + Math.PI)], [34, Math.sin(t)]];
+  for (const [lx, ph] of legs) {
+    ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(x + lx, bodyY + 4); ctx.lineTo(x + lx + ph * 6, base - 1); ctx.stroke();
+    ctx.strokeStyle = coat.body; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x + lx, bodyY + 4); ctx.lineTo(x + lx + ph * 6, base - 1); ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  // corpo
+  ctx.fillStyle = coat.body; ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x + 22, bodyY, 16, 8.5, 0.05, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = coat.belly; ctx.beginPath(); ctx.ellipse(x + 20, bodyY + 4.5, 10, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = coat.dark; ctx.lineWidth = 2;
+  for (const sx of [18, 24, 30]) { ctx.beginPath(); ctx.moveTo(x + sx, bodyY - 8); ctx.lineTo(x + sx - 2, bodyY - 2); ctx.stroke(); }
+  // testa con orecchie
+  const hx = x + 6, hy = bodyY - 7;
+  ctx.fillStyle = coat.body; ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 2;
+  for (const ex of [-5, 3]) { ctx.beginPath(); ctx.moveTo(hx + ex - 2, hy - 4); ctx.lineTo(hx + ex + 1, hy - 12); ctx.lineTo(hx + ex + 5, hy - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(hx, hy, 8.5, 7.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = coat.belly; ctx.beginPath(); ctx.ellipse(hx - 3, hy + 3, 4.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9bd04a'; ctx.beginPath(); ctx.ellipse(hx - 3, hy - 1.5, 2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.fillRect(hx - 3.4, hy - 3.4, 0.9, 3.8);
+  ctx.fillStyle = '#e88a9a'; ctx.beginPath(); ctx.arc(hx - 7, hy + 1.5, 1.4, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 0.8;
+  for (const wy of [1, 3]) { ctx.beginPath(); ctx.moveTo(hx - 5, hy + wy + 1); ctx.lineTo(hx - 14, hy + wy * 1.5); ctx.stroke(); }
+}
+
+// piccione in volo basso (guarda a sinistra): ci si abbassa o si salta
+function drawPigeon(o) {
+  const t = gameTime * 0.025 + o.v * 10;
+  const flap = Math.sin(t);
+  const cx = o.x + 17, cy = o.y + 12 - Math.abs(Math.sin(t * 0.5)) * 4;
+  ctx.lineWidth = 2; ctx.strokeStyle = '#3a2c25';
+  // coda
+  ctx.fillStyle = '#6f7480'; ctx.beginPath(); ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 20, cy - 4); ctx.lineTo(cx + 21, cy + 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // ala lontana
+  ctx.fillStyle = '#7d8290';
+  ctx.beginPath(); ctx.moveTo(cx - 2, cy - 2); ctx.lineTo(cx + 8, cy - 2); ctx.lineTo(cx + 6, cy - 2 - flap * 13); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // corpo
+  ctx.fillStyle = '#a6abb6'; ctx.beginPath(); ctx.ellipse(cx + 2, cy + 1, 11, 6.5, -0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // collo cangiante e testa
+  ctx.fillStyle = '#4f8f7a'; ctx.beginPath(); ctx.ellipse(cx - 7, cy - 1, 4.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#8c5fa0'; ctx.beginPath(); ctx.ellipse(cx - 7, cy + 2, 3.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#8b909c'; ctx.beginPath(); ctx.arc(cx - 10, cy - 5, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8892e'; ctx.beginPath(); ctx.arc(cx - 11, cy - 6, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#d9c9b6'; ctx.beginPath(); ctx.moveTo(cx - 14, cy - 5.5); ctx.lineTo(cx - 18, cy - 4); ctx.lineTo(cx - 14, cy - 3.5); ctx.closePath(); ctx.fill();
+  // ala vicina con le bande scure
+  ctx.fillStyle = '#9095a2';
+  ctx.beginPath(); ctx.moveTo(cx - 3, cy - 1); ctx.lineTo(cx + 9, cy - 1); ctx.lineTo(cx + 4, cy - 1 - flap * 16); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = '#3d4049'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - 1, cy - 1 - flap * 4); ctx.lineTo(cx + 7, cy - 1 - flap * 4); ctx.stroke();
 }
 
 // vaso di terracotta con i gerani
@@ -572,7 +659,7 @@ function update(dt) {
     specialTimer = 22000 + Math.random() * 10000;
   }
 
-  obstacles.forEach(o => o.x -= speed * dt);
+  obstacles.forEach(o => o.x -= (speed + (o.vx || 0)) * dt);
   obstacles = obstacles.filter(o => o.x + o.w > -10);
 
   treats.forEach(t => t.x -= speed * dt);
