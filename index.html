@@ -60,6 +60,14 @@
     background: #fff; color: #333; font-weight: bold; cursor: pointer; font-size: 16px;
   }
   .dogBtn.selected { border-color: #ffb703; }
+  #nameForm, #board { margin-top: 12px; width: min(320px, 90%); }
+  #nameForm input { width: 100%; box-sizing: border-box; padding: 12px; font-size: 18px; border-radius: 14px; border: 3px solid #ffb703; text-align: center; }
+  #nameForm button { margin-top: 10px; }
+  #board ol { text-align: left; margin: 8px 0 0; padding-left: 30px; max-height: 42vh; overflow-y: auto; font-size: 16px; }
+  #board li { margin: 2px 0; }
+  #board li b { float: right; }
+  #board .me { color: #ffd60a; }
+  .small { font-size: 15px !important; padding: 8px 20px !important; margin-top: 10px !important; }
 
   #controls {
     position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 0; right: 0;
@@ -114,11 +122,22 @@
     <button class="dogBtn selected" data-dog="onni">🐾 Onni</button>
     <button class="dogBtn" data-dog="daphne">🐾 Daphne</button>
   </div>
+  <div id="nameForm" class="hidden">
+    <p>Sei in classifica! Scrivi il tuo nome:</p>
+    <input id="nameInput" maxlength="16" placeholder="Il tuo nome" autocomplete="off">
+    <button id="saveScore">Salva punteggio</button>
+  </div>
+  <div id="board" class="hidden"></div>
   <button id="startBtn">Gioca</button>
+  <button id="boardBtn" class="small">Classifica</button>
 </div>
 
 <script src="dogrig.js"></script>
 <script src="background.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="leaderboard.js"></script>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -861,9 +880,66 @@ function gameOver() {
     'Punteggio: ' + finalScore + '  —  Record: ' + best;
   document.getElementById('startBtn').textContent = 'Riprova';
   document.getElementById('overlay').classList.remove('hidden');
+  hideBoardUi();
+  Leaderboard.qualifies(finalScore).then(q => {
+    if (q && state === 'gameover') showNameForm(finalScore);
+    else if (state === 'gameover') showBoard(finalScore);
+  }).catch(() => {});
+}
+
+function hideBoardUi() {
+  document.getElementById('nameForm').classList.add('hidden');
+  document.getElementById('board').classList.add('hidden');
+}
+
+function showNameForm(score) {
+  const input = document.getElementById('nameInput');
+  const btn = document.getElementById('saveScore');
+  input.value = '';
+  btn.disabled = false;
+  btn.textContent = 'Salva punteggio';
+  document.getElementById('nameForm').classList.remove('hidden');
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Salvataggio...';
+    try {
+      await Leaderboard.submit(input.value, score);
+      document.getElementById('nameForm').classList.add('hidden');
+      showBoard(score);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Riprova a salvare';
+    }
+  };
+}
+
+async function showBoard(myScore) {
+  const box = document.getElementById('board');
+  box.classList.remove('hidden');
+  box.innerHTML = '<p>Caricamento classifica...</p>';
+  if (!Leaderboard.enabled) { box.innerHTML = '<p>Classifica online non ancora attiva.</p>'; return; }
+  try {
+    const list = await Leaderboard.top();
+    if (!list.length) { box.innerHTML = '<p>Nessun punteggio ancora. Sii il primo!</p>'; return; }
+    const ol = document.createElement('ol');
+    list.forEach(e => {
+      const li = document.createElement('li');
+      const mine = myScore != null && e.score === Math.floor(myScore) && li && !ol.dataset.marked;
+      if (mine) { li.classList.add('me'); ol.dataset.marked = '1'; }
+      const name = document.createElement('span'); name.textContent = e.name;
+      const score = document.createElement('b'); score.textContent = e.score;
+      li.append(name, score);
+      ol.appendChild(li);
+    });
+    box.innerHTML = '<p><b>Primi 20</b></p>';
+    box.appendChild(ol);
+  } catch (e) {
+    box.innerHTML = '<p>Classifica non disponibile (controlla la connessione).</p>';
+  }
 }
 
 function startGame() {
+  hideBoardUi();
   resetGame();
   state = 'playing';
   document.getElementById('overlay').classList.add('hidden');
@@ -898,6 +974,7 @@ fireBtn.addEventListener('pointerleave', stopFire);
 fireBtn.addEventListener('pointercancel', stopFire);
 
 window.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'KeyX' && !e.repeat) startFire();
   if (e.code === 'Space' || e.code === 'ArrowUp') jump();
   if (e.code === 'ArrowDown') setCrouch(true);
@@ -917,6 +994,10 @@ document.querySelectorAll('#dogSelect .dogBtn').forEach(btn => {
 });
 
 document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('boardBtn').addEventListener('click', () => {
+  document.getElementById('subtitle').textContent = 'I migliori punteggi di tutti i giocatori';
+  showBoard(null);
+});
 
 resetDog();
 requestAnimationFrame(loop);
