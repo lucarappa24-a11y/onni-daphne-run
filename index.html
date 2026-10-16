@@ -54,9 +54,7 @@
     color: #333; font-weight: bold; cursor: pointer;
   }
   .hidden { display: none !important; }
-  #dogSelect, #styleSelect { display: flex; gap: 20px; margin-top: 10px; }
-  #styleSelect { gap: 10px; }
-  #styleSelect .dogBtn { padding: 6px 14px; font-size: 14px; }
+  #dogSelect { display: flex; gap: 20px; margin-top: 10px; }
   .dogBtn {
     padding: 10px 18px; border-radius: 16px; border: 3px solid transparent;
     background: #fff; color: #333; font-weight: bold; cursor: pointer; font-size: 16px;
@@ -64,19 +62,34 @@
   .dogBtn.selected { border-color: #ffb703; }
 
   #controls {
-    position: fixed; bottom: 24px; left: 0; right: 0;
+    position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 0; right: 0;
     display: flex; justify-content: space-between;
-    padding: 0 24px; z-index: 15; pointer-events: none;
+    padding: 0 18px; z-index: 15; pointer-events: none;
   }
   .ctrlBtn {
     pointer-events: auto;
-    width: 92px; height: 92px; border-radius: 50%;
-    border: none; background: rgba(255,255,255,0.85);
-    font-size: 15px; font-weight: bold; color: #333;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-    user-select: none; -webkit-user-select: none;
+    width: 132px; height: 132px; padding: 0;
+    border: none; background: transparent;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    transition: transform 0.06s ease-out, filter 0.06s ease-out;
   }
-  .ctrlBtn:active { background: #ffb703; }
+  .ctrlBtn img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+  .ctrlBtn:active, .ctrlBtn.pressed { transform: scale(0.88); filter: brightness(1.15); }
+  #fireBtn {
+    position: fixed; left: 50%; bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    width: 86px; height: 86px; margin-left: -43px; border-radius: 50%; z-index: 16;
+    border: 5px solid #141518;
+    background: radial-gradient(circle at 34% 28%, #ffb08a 0%, #ff6a3d 28%, #e0362b 62%, #a81a16 100%);
+    box-shadow: 0 6px 0 #141518, 0 10px 14px rgba(0,0,0,0.35), inset 0 -6px 0 rgba(0,0,0,0.18);
+    color: #fff; font: 900 17px/1 -apple-system, system-ui, sans-serif; letter-spacing: 0.5px;
+    text-shadow: -2px -2px 0 #141518, 2px -2px 0 #141518, -2px 2px 0 #141518, 2px 2px 0 #141518, 0 3px 0 #141518;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    animation: firePop 0.25s ease-out, firePulse 0.9s ease-in-out 0.25s infinite;
+  }
+  #fireBtn.pressed { transform: translateY(5px); box-shadow: 0 1px 0 #141518, 0 4px 8px rgba(0,0,0,0.3), inset 0 -3px 0 rgba(0,0,0,0.18); animation: none; }
+  @keyframes firePop { from { transform: scale(0.2); } to { transform: scale(1); } }
+  @keyframes firePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  @media (prefers-reduced-motion: reduce) { #fireBtn { animation: none; } }
 </style>
 </head>
 <body>
@@ -88,9 +101,10 @@
 
 <canvas id="game"></canvas>
 
+<button id="fireBtn" class="hidden" aria-label="Spara">SPARA</button>
 <div id="controls">
-  <button class="ctrlBtn" id="duckBtn">⬇️<br>Abbassati</button>
-  <button class="ctrlBtn" id="jumpBtn">⬆️<br>Salta</button>
+  <button class="ctrlBtn" id="duckBtn" aria-label="Abbassati"><img src="art/ui/arrow-down.png" alt=""></button>
+  <button class="ctrlBtn" id="jumpBtn" aria-label="Salta"><img src="art/ui/arrow-up.png" alt=""></button>
 </div>
 
 <div id="overlay">
@@ -99,10 +113,6 @@
   <div id="dogSelect">
     <button class="dogBtn selected" data-dog="onni">🐾 Onni</button>
     <button class="dogBtn" data-dog="daphne">🐾 Daphne</button>
-  </div>
-  <div id="styleSelect">
-    <button class="dogBtn selected" data-style="light">Realistico</button>
-    <button class="dogBtn" data-style="toon">Cartoon</button>
   </div>
   <button id="startBtn">Gioca</button>
 </div>
@@ -146,6 +156,13 @@ const SCROLL_MAX_ADD = 0.42;    // quanto può crescere nel tempo
 const RAMP_TIME = 70000;        // ms per avvicinarsi alla velocità massima
 
 let speed = SCROLL_BASE;
+// crocchette (super premietto): ogni ostacolo ne regge 3, distrutto con le crocchette vale come 6 ossetti
+const FIRE_INTERVAL = 120;    // ms tra un colpo e l'altro tenendo premuto
+const KIBBLE_SPEED = 0.85;    // px/ms verso destra
+const OBSTACLE_HP = 3;
+const SHOT_SCORE = 60;        // 6 ossetti x 10
+let kibbles = [], crumbs = [], popups = [];
+let firing = false, fireCooldown = 0, fireVisible = false;
 let worldX = 0;   // distanza percorsa (px), muove i livelli dello sfondo
 let gameTime = 0; // orologio di gioco (ms), usato per difficoltà e invincibilità
 
@@ -264,6 +281,8 @@ function resetGame() {
   invincibleUntil = 0;
   obstacles = [];
   treats = [];
+  kibbles = []; crumbs = []; popups = [];
+  firing = false; fireCooldown = 0; setFireVisible(false);
   spawnTimer = 1200;
   freeTreatTimer = 0;
   pendingSpecial = false;
@@ -284,7 +303,7 @@ const DOG_IMG = {
 for (const k in DOG_IMG) { const im = new Image(); im.src = DOG_IMG[k].src; DOG_IMG[k].img = im; }
 const DOG_SCALE = 0.33;
 
-// cani ricavati dalle foto vere (scontornati + filtro), animati a ritagli; style = 'light' (realistico) o 'toon'
+// cani ricavati dalle foto vere (scontornati + filtro realistico), animati a ritagli
 const PHOTO_RIGS = {
   onni: {
     scale: 0.32,
@@ -308,9 +327,7 @@ const PHOTO_RIGS = {
     }
   }
 };
-for (const k in PHOTO_RIGS) for (const style of ['light', 'toon']) DogRig.load(`${k}_${style}`, `art/foto/${k}_${style}`, PHOTO_RIGS[k].rig);
-let dogStyle = 'light';
-try { dogStyle = localStorage.getItem('onnidaphne_style') || 'light'; } catch (e) {}
+for (const k in PHOTO_RIGS) DogRig.load(`${k}_light`, `art/foto/${k}_light`, PHOTO_RIGS[k].rig);
 
 function drawDog() {
   const d = DOG_IMG[selectedDog];
@@ -331,7 +348,7 @@ function drawDog() {
   const photo = PHOTO_RIGS[selectedDog];
   if (photo) {
     const pose = crouch ? { crouch: true } : !dog.onGround ? { air: dog.vy < 0 ? -1 : 1 } : { run: state === 'playing' ? dog.legPhase : null };
-    if (DogRig.draw(ctx, `${selectedDog}_${dogStyle}`, pose, photo.scale)) { ctx.restore(); return; }
+    if (DogRig.draw(ctx, `${selectedDog}_light`, pose, photo.scale)) { ctx.restore(); return; }
   }
   const ready = d.img.complete && d.img.naturalWidth;
   if (crouch && ready) {
@@ -363,6 +380,7 @@ function drawObstacles() {
   for (const o of obstacles) {
     const v = o.v ?? 0; // variante scelta a caso quando l'ostacolo compare
     ctx.save();
+    if (o.hitAt != null && gameTime - o.hitAt < 120) ctx.translate((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3);
     ctx.lineJoin = 'round'; ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 2;
     if (o.kind === 'cat') {
       drawCat(o);
@@ -598,9 +616,11 @@ function loop(t) {
     update(dt);
   }
 
+  if (state !== 'playing') updateEffects(dt);
   drawObstacles();
   drawTreats();
   drawDog();
+  drawKibbles();
 
   requestAnimationFrame(loop);
 }
@@ -615,6 +635,12 @@ function update(dt) {
   document.getElementById('invincibleBadge').textContent = invincible
     ? '✨ Invincibile! ' + Math.ceil((invincibleUntil - gameTime) / 1000) + 's'
     : '';
+
+  // tasto SPARA: c'è solo finché dura il super premietto
+  setFireVisible(invincible);
+  if (!invincible) firing = false;
+  fireCooldown -= dt;
+  if (firing && fireCooldown <= 0) shootKibble();
 
   // altezza cane in base a crouch
   const targetH = dog.crouching && dog.onGround ? CROUCH_H : standH();
@@ -671,14 +697,17 @@ function update(dt) {
     const o = obstacles[i];
     if (rectsOverlap(dogBox, o)) {
       if (invincible) {
+        // travolto con l'aura gialla: sparisce ma non dà punti
+        burst(o.x + o.w / 2, Math.max(o.y + o.h / 2, GROUND_Y - 120), '#ffd60a', 8);
         obstacles.splice(i, 1);
-        score += 15;
       } else {
         gameOver();
         return;
       }
     }
   }
+
+  updateKibbles(dt);
 
   // raccolta premietti
   for (const t of treats) {
@@ -697,6 +726,107 @@ function update(dt) {
 
   score += dt * 0.012;
   document.getElementById('score').textContent = '🦴 ' + Math.floor(score);
+}
+
+// ---- crocchette ----
+const fireBtn = document.getElementById('fireBtn');
+function setFireVisible(v) {
+  if (v === fireVisible) return;
+  fireVisible = v;
+  fireBtn.classList.toggle('hidden', !v);
+  if (!v) fireBtn.classList.remove('pressed');
+}
+
+function mouthPos() {
+  // punta del muso: davanti al box del cane, all'altezza della bocca (più bassa se abbassato)
+  const ahead = selectedDog === 'daphne' ? 66 : 52;
+  return { x: dog.x + dog.w / 2 + ahead, y: dog.y + (dog.crouching && dog.onGround ? 10 : 8) };
+}
+
+function shootKibble() {
+  if (state !== 'playing' || gameTime >= invincibleUntil || fireCooldown > 0) return;
+  fireCooldown = FIRE_INTERVAL;
+  const m = mouthPos();
+  // mira leggera verso l'ostacolo più vicino davanti (così si colpiscono anche gatti e vasi bassi)
+  let target = null;
+  for (const o of obstacles) if (o.x + o.w > m.x && o.x < W && (!target || o.x < target.x)) target = o;
+  let vy = 0;
+  if (target) {
+    const ty = target.y < 0 ? target.y + target.h - 16 : target.y + target.h / 2;
+    const t = Math.max(80, (target.x + target.w / 2 - m.x) / (KIBBLE_SPEED + speed + (target.vx || 0)));
+    vy = Math.max(-0.35, Math.min(0.35, (ty - m.y) / t));
+  }
+  kibbles.push({ x: m.x, y: m.y + (Math.random() - 0.5) * 3, vy, rot: Math.random() * 6 });
+  crumbs.push({ x: m.x + 2, y: m.y, vx: 0.05, vy: -0.03, life: 120, max: 120, size: 7, color: 'rgba(255,240,200,0.9)', flash: true });
+}
+
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = 0.08 + Math.random() * 0.22;
+    crumbs.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.1, life: 450, max: 450, size: 2 + Math.random() * 3, color });
+  }
+}
+
+function updateKibbles(dt) {
+  for (const k of kibbles) {
+    k.x += KIBBLE_SPEED * dt; k.y += k.vy * dt; k.rot += dt * 0.02;
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      const cx = Math.max(o.x, Math.min(k.x, o.x + o.w)), cy = Math.max(o.y, Math.min(k.y, o.y + o.h));
+      if ((k.x - cx) ** 2 + (k.y - cy) ** 2 > 36) continue;
+      k.dead = true;
+      o.hp = (o.hp ?? OBSTACLE_HP) - 1;
+      o.hitAt = gameTime;
+      burst(k.x, k.y, '#a0602c', 4);
+      if (o.hp <= 0) {
+        const py = Math.max(o.y + o.h / 2, GROUND_Y - 130);
+        burst(o.x + o.w / 2, py, '#a0602c', 10);
+        burst(o.x + o.w / 2, py, '#ffd60a', 8);
+        popups.push({ x: o.x + o.w / 2, y: py - 10, text: '+' + SHOT_SCORE, life: 900, max: 900 });
+        score += SHOT_SCORE;
+        obstacles.splice(i, 1);
+      }
+      break;
+    }
+  }
+  kibbles = kibbles.filter(k => !k.dead && k.x < W + 20 && k.y > -20 && k.y < H);
+  updateEffects(dt);
+}
+
+function updateEffects(dt) {
+  for (const c of crumbs) { c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 0.0009 * dt; c.life -= dt; }
+  crumbs = crumbs.filter(c => c.life > 0);
+  for (const p of popups) { p.y -= 0.04 * dt; p.life -= dt; }
+  popups = popups.filter(p => p.life > 0);
+}
+
+function drawKibbles() {
+  for (const k of kibbles) {
+    ctx.save();
+    ctx.translate(k.x, k.y); ctx.rotate(k.rot);
+    const g = ctx.createRadialGradient(-2, -2, 1, 0, 0, 6.5);
+    g.addColorStop(0, '#d39a5a'); g.addColorStop(0.6, '#a0602c'); g.addColorStop(1, '#6e3d18');
+    ctx.fillStyle = g; ctx.strokeStyle = '#3a2c25'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(70,35,12,0.65)';
+    for (const [dx, dy] of [[-1.8, 1.2], [1.6, -0.6], [0.4, 2.2]]) { ctx.beginPath(); ctx.arc(dx, dy, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,240,215,0.7)'; ctx.beginPath(); ctx.arc(-2, -2.2, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  for (const c of crumbs) {
+    ctx.globalAlpha = Math.max(0, c.life / c.max);
+    ctx.fillStyle = c.color;
+    if (c.flash) { ctx.beginPath(); ctx.arc(c.x, c.y, c.size * (c.life / c.max), 0, Math.PI * 2); ctx.fill(); }
+    else ctx.fillRect(c.x - c.size / 2, c.y - c.size / 2, c.size, c.size);
+  }
+  ctx.globalAlpha = 1;
+  for (const p of popups) {
+    ctx.globalAlpha = Math.min(1, p.life / 300);
+    ctx.font = '900 20px -apple-system, system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 5; ctx.strokeStyle = '#141518'; ctx.lineJoin = 'round';
+    ctx.strokeText(p.text, p.x, p.y); ctx.fillStyle = '#ffd60a'; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function rectsOverlap(a, b) {
@@ -718,6 +848,7 @@ function setCrouch(v) {
 
 function gameOver() {
   state = 'gameover';
+  firing = false; setFireVisible(false);
   const finalScore = Math.floor(score);
   if (finalScore > best) {
     best = finalScore;
@@ -748,16 +879,31 @@ canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); jump(); });
 const jumpBtn = document.getElementById('jumpBtn');
 const duckBtn = document.getElementById('duckBtn');
 jumpBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
-duckBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); setCrouch(true); });
-duckBtn.addEventListener('pointerup', () => setCrouch(false));
-duckBtn.addEventListener('pointerleave', () => setCrouch(false));
-duckBtn.addEventListener('pointercancel', () => setCrouch(false));
+duckBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); duckBtn.classList.add('pressed'); setCrouch(true); });
+const releaseDuck = () => { duckBtn.classList.remove('pressed'); setCrouch(false); };
+duckBtn.addEventListener('pointerup', releaseDuck);
+duckBtn.addEventListener('pointerleave', releaseDuck);
+duckBtn.addEventListener('pointercancel', releaseDuck);
+
+const startFire = (e) => {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  fireBtn.classList.add('pressed');
+  firing = true;
+  shootKibble();
+};
+const stopFire = () => { fireBtn.classList.remove('pressed'); firing = false; };
+fireBtn.addEventListener('pointerdown', startFire);
+fireBtn.addEventListener('pointerup', stopFire);
+fireBtn.addEventListener('pointerleave', stopFire);
+fireBtn.addEventListener('pointercancel', stopFire);
 
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyX' && !e.repeat) startFire();
   if (e.code === 'Space' || e.code === 'ArrowUp') jump();
   if (e.code === 'ArrowDown') setCrouch(true);
 });
 window.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyX') stopFire();
   if (e.code === 'ArrowDown') setCrouch(false);
 });
 
@@ -767,16 +913,6 @@ document.querySelectorAll('#dogSelect .dogBtn').forEach(btn => {
     btn.classList.add('selected');
     selectedDog = btn.dataset.dog;
     resetDog();
-  });
-});
-
-document.querySelectorAll('#styleSelect .dogBtn').forEach(btn => {
-  btn.classList.toggle('selected', btn.dataset.style === dogStyle);
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#styleSelect .dogBtn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    dogStyle = btn.dataset.style;
-    try { localStorage.setItem('onnidaphne_style', dogStyle); } catch (e) {}
   });
 });
 

@@ -5,15 +5,15 @@ const Foligno = (() => {
   const OUT = '#3a2c25';     // inchiostro dei contorni, come i cani
   let cache = null;
 
-  // Rioni della Quintana: colori presi dagli stemmi ufficiali (quintana.it), stemmi in art/rioni
+  // Rioni della Quintana: colori degli stendardi (indicati dall'utente), stemmi ufficiali da quintana.it in art/rioni
   const RIONI = [
-    { name: 'Ammanniti', a: '#e9a7b4', b: '#d9a92e', img: 'ammanniti-1' },
-    { name: 'Badia', a: '#f4f1ea', b: '#c62a2f', img: 'badia-1' },
-    { name: 'Cassero', a: '#e2b23a', b: '#8e3b3b', img: 'cassero-1' },
+    { name: 'Ammanniti', a: '#e9a7b4', b: '#8f9399', img: 'ammanniti-1' },
+    { name: 'Badia', a: '#7a1f2c', b: '#f4f1ea', img: 'badia-1' },
+    { name: 'Cassero', a: '#f2c62e', b: '#6b4226', img: 'cassero-1' },
     { name: 'Contrastanga', a: '#f2cf2e', b: '#1f3f95', img: 'contrastanga-1' },
-    { name: 'Croce Bianca', a: '#d42a2a', b: '#f7f4ee', img: 'crocebianca-1' },
+    { name: 'Croce Bianca', a: '#f7f4ee', b: '#d42a2a', img: 'crocebianca-1' },
     { name: 'Giotti', a: '#7cc3ea', b: '#f7f4ee', img: 'giotti-1' },
-    { name: 'La Mora', a: '#5f9a3c', b: '#7a5232', img: 'lamora-1' },
+    { name: 'La Mora', a: '#3f8f3a', b: '#f2cf2e', img: 'lamora-1' },
     { name: 'Morlupo', a: '#e48bc0', b: '#1b1b1b', img: 'Morlupo' },
     { name: 'Pugilli', a: '#f4f1ea', b: '#1b1b1b', img: 'pugilli-1' },
     { name: 'Spada', a: '#1b1b1b', b: '#d9a92e', img: 'spada-1' }
