@@ -1,6 +1,6 @@
 // Service worker: salva il gioco sul telefono così funziona anche senza internet.
 // VERSION e FILES vengono riscritti da tools/build.js a ogni pubblicazione.
-const VERSION = 'v-5911fc1a36';
+const VERSION = 'v-141e9b44e1';
 const FILES = ["./","index.html","dogrig.js","background.js","leaderboard.js","firebase-config.js","manifest.webmanifest","art/onni.svg","art/daphne.svg","icons/icon-180.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","art/rioni/ammanniti-1.png","art/rioni/badia-1.png","art/rioni/cassero-1.png","art/rioni/contrastanga-1.png","art/rioni/crocebianca-1.png","art/rioni/giotti-1.png","art/rioni/lamora-1.png","art/rioni/Morlupo.png","art/rioni/pugilli-1.png","art/rioni/spada-1.png","art/foto/onni_light_body.png","art/foto/onni_light_hind.png","art/foto/onni_light_front.png","art/foto/daphne_light_body.png","art/foto/daphne_light_hind.png","art/foto/daphne_light_front.png","art/ui/arrow-up.png","art/ui/arrow-down.png"];
 
 self.addEventListener('install', (e) => {

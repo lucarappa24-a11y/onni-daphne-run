@@ -178,8 +178,24 @@ const Foligno = (() => {
     c.fillStyle = '#8d8a83'; c.fillRect(x, top, 4, DH - top); ink(c, 1); c.strokeRect(x, top, 4, DH - top);
     for (let y = top + 30; y < DH; y += 45) box(c, x - 1, y, 6, 3, '#6f6c66', 0.8);
   }
+  // stemma già rimpicciolito alla misura giusta (preparato una volta: lo stemma di Morlupo è 834 px)
+  function emblemCanvas(rione, px) {
+    rione.sized = rione.sized || {};
+    if (!rione.sized[px]) {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = px;
+      const g = cv.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(rione.image, 0, 0, px, px);
+      rione.sized[px] = cv;
+    }
+    return rione.sized[px];
+  }
   function emblem(c, rione, cx, cy, size) {
-    if (rione.image.complete && rione.image.naturalWidth) c.drawImage(rione.image, cx - size / 2, cy - size / 2, size, size);
+    if (rione.image.complete && rione.image.naturalWidth) {
+      const px = Math.max(8, Math.round(size * (c.getTransform().a || 1)));
+      c.drawImage(emblemCanvas(rione, px), cx - size / 2, cy - size / 2, size, size);
+    }
     else { c.fillStyle = '#e2b23a'; c.beginPath(); c.arc(cx, cy, size * 0.35, 0, Math.PI * 2); c.fill(); }
   }
   function smallBanner(c, x, y, w, h, rione) {
@@ -514,14 +530,41 @@ const Foligno = (() => {
 
   function ensure(ctx, W, H, groundY) {
     const dpr = ctx.getTransform().a || 1;
-    const scale = Math.max(0.7, Math.min(1.25, (groundY * 0.5) / DH));
-    const key = `${dpr}|${scale.toFixed(3)}|${emblemsReady()}`;
-    if (cache && cache.key === key) return cache;
+    // scala a scalini di 0.05: pochi pixel di differenza d'altezza non devono far ridisegnare tutti i palazzi
+    const scale = Math.round(Math.max(0.7, Math.min(1.25, (groundY * 0.5) / DH)) * 20) / 20;
+    const key = `${dpr}|${scale}|${emblemsReady()}`;
+    if (cache && cache.key === key) {
+      if (cache.skyY !== groundY) {
+        cache.skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+        cache.skyGrad.addColorStop(0, '#7fc1e8'); cache.skyGrad.addColorStop(0.7, '#cfe8f3'); cache.skyGrad.addColorStop(1, '#f6e9d2');
+        cache.skyY = groundY;
+      }
+      return cache;
+    }
     const strip = buildStrip(scale * dpr), sky = buildSkyline(dpr * scale * 0.8);
+    // fila di palazzi divisa in pezzi: un'unica immagine larga migliaia di pixel supera il limite
+    // della memoria grafica di molti telefoni (4096 px) e fa scattare il gioco
+    strip.devW = strip.canvas.width;
+    strip.parts = chunk(strip.canvas, 1024);
+    strip.canvas = null;
     const cobble = ctx.createPattern(buildCobbles(dpr), 'repeat');
     cobble.setTransform(new DOMMatrix([1 / dpr, 0, 0, 1 / dpr, 0, 0]));
-    cache = { key, dpr, scale, strip, sky, cobble };
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+    skyGrad.addColorStop(0, '#7fc1e8'); skyGrad.addColorStop(0.7, '#cfe8f3'); skyGrad.addColorStop(1, '#f6e9d2');
+    cache = { key, dpr, scale, strip, sky, cobble, skyGrad, skyY: groundY };
     return cache;
+  }
+
+  function chunk(canvas, maxW) {
+    const parts = [];
+    for (let x = 0; x < canvas.width; x += maxW) {
+      const w = Math.min(maxW + 2, canvas.width - x);   // 2 px di sovrapposizione: niente righe tra un pezzo e l'altro
+      const c = document.createElement('canvas');
+      c.width = w; c.height = canvas.height;
+      c.getContext('2d').drawImage(canvas, x, 0, w, canvas.height, 0, 0, w, canvas.height);
+      parts.push({ canvas: c, x });
+    }
+    return parts;
   }
 
   function tile(ctx, img, drawW, drawH, y, offset, W) {
@@ -529,11 +572,22 @@ const Foligno = (() => {
     for (; x < W; x += drawW) ctx.drawImage(img, x, y, drawW, drawH);
   }
 
+  // disegna solo i pezzi della fila di palazzi che cadono dentro lo schermo
+  function tileParts(ctx, strip, drawW, drawH, y, offset, W, dpr) {
+    const k = drawW / strip.devW;
+    let x0 = -((offset % drawW) + drawW) % drawW;
+    for (; x0 < W; x0 += drawW) {
+      for (const p of strip.parts) {
+        const px = Math.round((x0 + p.x * k) * dpr) / dpr, pw = p.canvas.width * k;
+        if (px + pw < 0 || px > W) continue;
+        ctx.drawImage(p.canvas, px, y, pw, drawH);
+      }
+    }
+  }
+
   function draw(ctx, W, H, groundY, scroll) {
     const C = ensure(ctx, W, H, groundY);
-    const g = ctx.createLinearGradient(0, 0, 0, groundY);
-    g.addColorStop(0, '#7fc1e8'); g.addColorStop(0.7, '#cfe8f3'); g.addColorStop(1, '#f6e9d2');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, groundY);
+    ctx.fillStyle = C.skyGrad; ctx.fillRect(0, 0, W, groundY);
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     for (const [cx, cy, s] of [[0.15, 0.12, 1], [0.6, 0.08, 1.3], [0.9, 0.18, 0.8]]) {
       const x = ((cx * W - scroll * 0.03) % (W + 200) + W + 200) % (W + 200) - 100, y = cy * groundY;
@@ -549,7 +603,7 @@ const Foligno = (() => {
     const skyH = C.sky.h * C.scale * 0.8, skyW = C.sky.w * C.scale * 0.8;
     tile(ctx, C.sky.canvas, skyW, skyH, groundY - skyH - 150 * C.scale, scroll * 0.25, W);
     const sw = C.strip.w * C.scale, shh = (DH + 4) * C.scale;
-    tile(ctx, C.strip.canvas, sw, shh, groundY - 10 * C.scale - DH * C.scale, scroll * 0.55, W);
+    tileParts(ctx, C.strip, sw, shh, groundY - 10 * C.scale - DH * C.scale, scroll * 0.55, W, C.dpr);
     ctx.fillStyle = '#cdc1b0'; ctx.fillRect(0, groundY - 10 * C.scale, W, 10 * C.scale);
     ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, groundY - 10 * C.scale, W, 1.5);
     ctx.fillStyle = '#a69886'; ctx.fillRect(0, groundY - 2, W, 4);

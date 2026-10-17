@@ -14,11 +14,32 @@ const DogRig = (() => {
     return !!c && Object.values(c.parts).every(im => im.complete && im.naturalWidth);
   }
 
+  // Copie dei pezzi già rimpicciolite alla misura esatta dello schermo (fatte una volta sola):
+  // rimpicciolire le immagini a ogni fotogramma con la qualità alta è lento sui telefoni.
+  function scaledParts(c, factor) {
+    if (c.scaled && c.scaled.factor === factor) return c.scaled.parts;
+    const out = {};
+    for (const [name, im] of Object.entries(c.parts)) {
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(im.naturalWidth * factor));
+      cv.height = Math.max(1, Math.round(im.naturalHeight * factor));
+      const g = cv.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(im, 0, 0, cv.width, cv.height);
+      out[name] = cv;
+    }
+    c.scaled = { factor, parts: out };
+    return out;
+  }
+
   // pose: { run: fase corsa (rad) o null, air: -1..1 (salita/discesa) o null, crouch: bool }
   // disegna con i piedi centrati in (0,0) del contesto attuale, larghezza finale = rig.width * scale
   function draw(ctx, key, pose, scale) {
     if (!ready(key)) return false;
-    const { rig, parts } = cache[key];
+    const { rig, parts: orig } = cache[key];
+    const factor = Math.round(scale * (ctx.getTransform().a || 1) * 1000) / 1000;
+    const parts = scaledParts(cache[key], factor);
+    const W = name => orig[name].naturalWidth, H = name => orig[name].naturalHeight;
     const angles = {};
     let tilt = 0;
     if (pose.air != null) {
@@ -48,10 +69,10 @@ const DogRig = (() => {
       ctx.translate(px, py);
       ctx.rotate(angles[leg.name] || 0);
       ctx.scale(1, k);
-      ctx.drawImage(parts[leg.name], leg.x - px, leg.y - py);
+      ctx.drawImage(parts[leg.name], leg.x - px, leg.y - py, W(leg.name), H(leg.name));
       ctx.restore();
     }
-    ctx.drawImage(parts.body, 0, 0);
+    ctx.drawImage(parts.body, 0, 0, W('body'), H('body'));
     ctx.restore();
     return true;
   }

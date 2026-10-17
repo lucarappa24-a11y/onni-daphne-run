@@ -20,7 +20,7 @@
   }
   html, body {
     margin: 0; padding: 0; overflow: hidden;
-    background: #87CEEB;
+    background: #978a7e;
     height: 100%; width: 100%;
     touch-action: none;
     font-family: -apple-system, system-ui, sans-serif;
@@ -79,10 +79,8 @@
     width: 132px; height: 132px; padding: 0;
     border: none; background: transparent;
     touch-action: none; user-select: none; -webkit-user-select: none;
-    transition: transform 0.06s ease-out, filter 0.06s ease-out;
   }
-  .ctrlBtn img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
-  .ctrlBtn:active, .ctrlBtn.pressed { transform: scale(0.88); filter: brightness(1.15); }
+  .ctrlBtn img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
   #fireBtn {
     position: fixed; left: 50%; bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     width: 86px; height: 86px; margin-left: -43px; border-radius: 50%; z-index: 16;
@@ -92,12 +90,9 @@
     color: #fff; font: 900 17px/1 -apple-system, system-ui, sans-serif; letter-spacing: 0.5px;
     text-shadow: -2px -2px 0 #141518, 2px -2px 0 #141518, -2px 2px 0 #141518, 2px 2px 0 #141518, 0 3px 0 #141518;
     touch-action: none; user-select: none; -webkit-user-select: none;
-    animation: firePop 0.25s ease-out, firePulse 0.9s ease-in-out 0.25s infinite;
+    animation: firePop 0.25s ease-out;
   }
-  #fireBtn.pressed { transform: translateY(5px); box-shadow: 0 1px 0 #141518, 0 4px 8px rgba(0,0,0,0.3), inset 0 -3px 0 rgba(0,0,0,0.18); animation: none; }
   @keyframes firePop { from { transform: scale(0.2); } to { transform: scale(1); } }
-  @keyframes firePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
-  @media (prefers-reduced-motion: reduce) { #fireBtn { animation: none; } }
 </style>
 </head>
 <body>
@@ -144,10 +139,25 @@ const ctx = canvas.getContext('2d');
 let W, H, GROUND_Y;
 
 // il canvas lavora alla risoluzione reale dello schermo (sui telefoni 2-3 volte quella "logica"), così niente sgranature
+// Su iPhone la barra di Safari compare/sparisce toccando in basso e cambia l'altezza di poco:
+// in quel caso non si rifà niente (prima il terreno si spostava e i palazzi venivano ridisegnati = scatti).
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  if (w === W && Math.abs(h - H) < H * 0.25) return;
+  const oldGround = GROUND_Y;
+  resize();
+  const shift = GROUND_Y - oldGround;
+  if (shift && typeof dog !== 'undefined') {
+    dog.y += shift;
+    for (const o of obstacles) o.y += shift;
+    for (const t of treats) t.y += shift;
+  }
+}
+
 function resize() {
   W = window.innerWidth;
   H = window.innerHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   canvas.style.width = W + 'px';
@@ -157,7 +167,7 @@ function resize() {
   ctx.imageSmoothingQuality = 'high';
   GROUND_Y = H * 0.78;
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', onResize);
 resize();
 
 // ---- stato gioco ----
@@ -182,7 +192,8 @@ const OBSTACLE_HP = 3;
 const SHOT_SCORE = 60;        // 6 ossetti x 10
 let kibbles = [], crumbs = [], popups = [];
 let firing = false, fireCooldown = 0, fireVisible = false;
-let worldX = 0;   // distanza percorsa (px), muove i livelli dello sfondo
+let worldX = 0;
+let lastBadge = '', lastScore = -1;   // distanza percorsa (px), muove i livelli dello sfondo
 let gameTime = 0; // orologio di gioco (ms), usato per difficoltà e invincibilità
 
 const CROUCH_H = 30;
@@ -623,9 +634,14 @@ function drawToy(toy) {
 
 // ---- loop ----
 let lastTime = null;
+let smoothDt = 1000 / 60;
 function loop(t) {
   if (lastTime === null) lastTime = t;
-  const dt = Math.min(t - lastTime, 40);
+  // tempo medio tra i fotogrammi: se il telefono ne salta uno, il gioco non fa un balzo per recuperare
+  // seguito da un rallentamento (l'effetto "torna indietro"), ma continua a velocità regolare
+  const raw = Math.min(Math.max(t - lastTime, 4), 50);
+  smoothDt += (raw - smoothDt) * 0.12;
+  const dt = smoothDt;
   lastTime = t;
 
   if (state === 'menu') worldX += dt * 0.05;
@@ -651,9 +667,8 @@ function update(dt) {
   speed = SCROLL_BASE + ramp * SCROLL_MAX_ADD;
 
   const invincible = gameTime < invincibleUntil;
-  document.getElementById('invincibleBadge').textContent = invincible
-    ? '✨ Invincibile! ' + Math.ceil((invincibleUntil - gameTime) / 1000) + 's'
-    : '';
+  const badgeText = invincible ? '✨ Invincibile! ' + Math.ceil((invincibleUntil - gameTime) / 1000) + 's' : '';
+  if (badgeText !== lastBadge) { lastBadge = badgeText; document.getElementById('invincibleBadge').textContent = badgeText; }
 
   // tasto SPARA: c'è solo finché dura il super premietto
   setFireVisible(invincible);
@@ -744,7 +759,7 @@ function update(dt) {
   }
 
   score += dt * 0.012;
-  document.getElementById('score').textContent = '🦴 ' + Math.floor(score);
+  if (Math.floor(score) !== lastScore) { lastScore = Math.floor(score); document.getElementById('score').textContent = '🦴 ' + lastScore; }
 }
 
 // ---- crocchette ----
@@ -753,7 +768,6 @@ function setFireVisible(v) {
   if (v === fireVisible) return;
   fireVisible = v;
   fireBtn.classList.toggle('hidden', !v);
-  if (!v) fireBtn.classList.remove('pressed');
 }
 
 function mouthPos() {
@@ -950,28 +964,30 @@ document.addEventListener('selectstart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault());
 
-canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); jump(); });
+// Tocchi: sul telefono eventi "touch" nativi e PASSIVI (Safari non deve aspettare il gioco prima di
+// disegnare: con preventDefault perdeva un fotogramma a ogni tocco). Zoom e selezione sono già
+// disattivati da touch-action:none e user-select:none. Col mouse eventi "pointer".
+const TOUCH = 'ontouchstart' in window;
+function onPress(el, down, up) {
+  if (TOUCH) {
+    el.addEventListener('touchstart', (e) => { e.stopPropagation(); down(); }, { passive: true });
+    if (up) { el.addEventListener('touchend', up, { passive: true }); el.addEventListener('touchcancel', up, { passive: true }); }
+  } else {
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); down(); });
+    if (up) { el.addEventListener('pointerup', up); el.addEventListener('pointerleave', up); el.addEventListener('pointercancel', up); }
+  }
+}
+
+onPress(canvas, () => jump());
 
 const jumpBtn = document.getElementById('jumpBtn');
 const duckBtn = document.getElementById('duckBtn');
-jumpBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
-duckBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); duckBtn.classList.add('pressed'); setCrouch(true); });
-const releaseDuck = () => { duckBtn.classList.remove('pressed'); setCrouch(false); };
-duckBtn.addEventListener('pointerup', releaseDuck);
-duckBtn.addEventListener('pointerleave', releaseDuck);
-duckBtn.addEventListener('pointercancel', releaseDuck);
+onPress(jumpBtn, () => jump());
+onPress(duckBtn, () => setCrouch(true), () => setCrouch(false));
 
-const startFire = (e) => {
-  if (e) { e.preventDefault(); e.stopPropagation(); }
-  fireBtn.classList.add('pressed');
-  firing = true;
-  shootKibble();
-};
-const stopFire = () => { fireBtn.classList.remove('pressed'); firing = false; };
-fireBtn.addEventListener('pointerdown', startFire);
-fireBtn.addEventListener('pointerup', stopFire);
-fireBtn.addEventListener('pointerleave', stopFire);
-fireBtn.addEventListener('pointercancel', stopFire);
+const startFire = () => { firing = true; shootKibble(); };
+const stopFire = () => { firing = false; };
+onPress(fireBtn, startFire, stopFire);
 
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
